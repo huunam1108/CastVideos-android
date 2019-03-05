@@ -60,7 +60,7 @@ class QueueItemTouchHelperCallback(
         dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
         if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
             if (viewHolder is QueueListAdapter.QueueItemViewHolder) {
-                ViewCompat.setTranslationX(viewHolder.mContainer, dX)
+                ViewCompat.setTranslationX(viewHolder.container, dX)
             }
         } else {
             super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)

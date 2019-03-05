@@ -40,12 +40,11 @@ import com.google.sample.cast.refplayer.settings.CastPreference
 class QueueListViewActivity : AppCompatActivity() {
 
     private val remoteMediaClientCallback = MyRemoteMediaClientCallback()
-    private var castContext: CastContext? = null
-    private var remoteMediaClient1: RemoteMediaClient? = null
+    private var remoteMediaClient: RemoteMediaClient? = null
     private var emptyView: View? = null
-    private val remoteMediaClient: RemoteMediaClient?
+    private val currentRemoteMediaClient: RemoteMediaClient?
         get() {
-            val castSession = castContext?.sessionManager?.currentCastSession
+            val castSession = CastContext.getSharedInstance(this).sessionManager.currentCastSession
             return if (castSession != null && castSession.isConnected)
                 castSession.remoteMediaClient
             else
@@ -53,34 +52,29 @@ class QueueListViewActivity : AppCompatActivity() {
         }
     private val sessionManagerListener = object : MySessionManagerListener() {
         override fun onSessionEnded(session: CastSession, error: Int) {
-            if (remoteMediaClient1 != null) {
-                remoteMediaClient1!!.registerCallback(remoteMediaClientCallback)
-            }
-            remoteMediaClient1 = null
-            emptyView!!.visibility = View.VISIBLE
+            remoteMediaClient?.registerCallback(remoteMediaClientCallback)
+            remoteMediaClient = null
+            emptyView?.visibility = View.VISIBLE
         }
 
         override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
-            remoteMediaClient1 = remoteMediaClient
-            if (remoteMediaClient1 != null) {
-                remoteMediaClient1!!.registerCallback(remoteMediaClientCallback)
-            }
+            remoteMediaClient = currentRemoteMediaClient
+            remoteMediaClient?.registerCallback(remoteMediaClientCallback)
         }
 
         override fun onSessionStarted(session: CastSession, sessionId: String) {
-            remoteMediaClient1 = remoteMediaClient
-            if (remoteMediaClient1 != null) {
-                remoteMediaClient1!!.registerCallback(remoteMediaClientCallback)
-            }
+            remoteMediaClient = currentRemoteMediaClient
+            remoteMediaClient?.registerCallback(remoteMediaClientCallback)
         }
 
         override fun onSessionSuspended(session: CastSession, reason: Int) {
-            if (remoteMediaClient1 != null) {
-                remoteMediaClient1!!.unregisterCallback(remoteMediaClientCallback)
+            if (remoteMediaClient != null) {
+                remoteMediaClient!!.unregisterCallback(remoteMediaClientCallback)
             }
-            remoteMediaClient1 = null
+            remoteMediaClient = null
         }
     }
+
     private inner class MyRemoteMediaClientCallback : RemoteMediaClient.Callback() {
         override fun onStatusUpdated() {
             updateMediaQueue()
@@ -91,13 +85,9 @@ class QueueListViewActivity : AppCompatActivity() {
         }
 
         private fun updateMediaQueue() {
-            val mediaStatus = remoteMediaClient1!!.mediaStatus
-            val queueItems = mediaStatus?.queueItems
-            if (queueItems == null || queueItems.isEmpty()) {
-                emptyView!!.visibility = View.VISIBLE
-            } else {
-                emptyView!!.visibility = View.GONE
-            }
+            val queueItems = remoteMediaClient?.mediaStatus?.queueItems
+            emptyView?.visibility = if (queueItems == null || queueItems.isEmpty()) View.VISIBLE
+            else View.GONE
         }
     }
 
@@ -113,7 +103,6 @@ class QueueListViewActivity : AppCompatActivity() {
         }
         setupActionBar()
         emptyView = findViewById(R.id.empty)
-        castContext = CastContext.getSharedInstance(this)
     }
 
     private fun setupActionBar() {
@@ -124,11 +113,10 @@ class QueueListViewActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        if (remoteMediaClient1 != null) {
-            remoteMediaClient1!!.unregisterCallback(remoteMediaClientCallback)
-        }
-        castContext!!.sessionManager
-            .removeSessionManagerListener(sessionManagerListener, CastSession::class.java)
+        remoteMediaClient?.unregisterCallback(remoteMediaClientCallback)
+        CastContext.getSharedInstance(this).sessionManager.removeSessionManagerListener(
+            sessionManagerListener,
+            CastSession::class.java)
         super.onPause()
     }
 
@@ -143,7 +131,7 @@ class QueueListViewActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_settings -> startActivity(
-                Intent(this@QueueListViewActivity, CastPreference::class.java))
+                Intent(applicationContext, CastPreference::class.java))
             R.id.action_clear_queue -> QueueDataProvider.getInstance(applicationContext).removeAll()
             android.R.id.home -> finish()
         }
@@ -151,19 +139,20 @@ class QueueListViewActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        return castContext!!.onDispatchVolumeKeyEventBeforeJellyBean(
+        return CastContext.getSharedInstance(this).onDispatchVolumeKeyEventBeforeJellyBean(
             event) || super.dispatchKeyEvent(event)
     }
 
     override fun onResume() {
-        castContext!!.sessionManager
-            .addSessionManagerListener(sessionManagerListener, CastSession::class.java)
-        if (remoteMediaClient1 == null) {
-            remoteMediaClient1 = remoteMediaClient
+        CastContext.getSharedInstance(this).sessionManager.addSessionManagerListener(
+            sessionManagerListener, CastSession::class.java)
+
+        if (remoteMediaClient == null) {
+            remoteMediaClient = currentRemoteMediaClient
         }
-        if (remoteMediaClient1 != null) {
-            remoteMediaClient1!!.registerCallback(remoteMediaClientCallback)
-            val mediaStatus = remoteMediaClient1!!.mediaStatus
+
+        remoteMediaClient?.apply {
+            registerCallback(remoteMediaClientCallback)
             val queueItems = mediaStatus?.queueItems
             if (queueItems != null && !queueItems.isEmpty()) {
                 emptyView!!.visibility = View.GONE

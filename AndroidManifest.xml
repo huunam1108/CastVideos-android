@@ -82,6 +82,18 @@
                     android:name="android.support.PARENT_ACTIVITY"
                     android:value="com.google.sample.cast.refplayer.VideoBrowserActivity"/>
         </activity>
+        <activity
+            android:name=".expandedcontrols.CustomExpandedControlsActivity"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.google.sample.cast.refplayer.VideoBrowserActivity"/>
+        </activity>
         <meta-data
                 android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
                 android:value="com.google.sample.cast.refplayer.CastOptionsProvider"/>

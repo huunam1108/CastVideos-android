@@ -26,7 +26,7 @@ import com.google.android.gms.cast.framework.media.ImagePicker
 import com.google.android.gms.cast.framework.media.MediaIntentReceiver
 import com.google.android.gms.cast.framework.media.NotificationOptions
 import com.google.android.gms.common.images.WebImage
-import com.google.sample.cast.refplayer.expandedcontrols.ExpandedControlsActivity
+import com.google.sample.cast.refplayer.expandedcontrols.CustomExpandedControlsActivity
 import java.util.*
 
 /**
@@ -40,12 +40,12 @@ class CastOptionsProvider : OptionsProvider {
             .setActions(Arrays.asList(MediaIntentReceiver.ACTION_SKIP_NEXT,
                 MediaIntentReceiver.ACTION_TOGGLE_PLAYBACK,
                 MediaIntentReceiver.ACTION_STOP_CASTING), intArrayOf(1, 2))
-            .setTargetActivityClassName(ExpandedControlsActivity::class.java.name)
+            .setTargetActivityClassName(CustomExpandedControlsActivity::class.java.name)
             .build()
         val mediaOptions = CastMediaOptions.Builder()
             .setImagePicker(ImagePickerImpl())
             .setNotificationOptions(notificationOptions)
-            .setExpandedControllerActivityClassName(ExpandedControlsActivity::class.java.name)
+            .setExpandedControllerActivityClassName(CustomExpandedControlsActivity::class.java.name)
             .build()
         return CastOptions.Builder()
             .setReceiverApplicationId(context.getString(R.string.app_id))

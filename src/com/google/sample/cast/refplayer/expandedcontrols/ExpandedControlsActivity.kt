@@ -25,7 +25,7 @@ import com.google.sample.cast.refplayer.R
 /**
  * An example of extending [ExpandedControllerActivity] to add a cast button.
  */
-class ExpandedControlsActivity : ExpandedControllerActivity() {
+open class ExpandedControlsActivity : ExpandedControllerActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         super.onCreateOptionsMenu(menu)

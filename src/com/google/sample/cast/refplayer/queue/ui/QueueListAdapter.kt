@@ -27,7 +27,6 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.IntDef
-import androidx.core.view.MotionEventCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.toolbox.ImageLoader
@@ -44,20 +43,20 @@ import com.google.sample.cast.refplayer.utils.CustomVolleyRequest
  * An adapter to show the list of queue items.
  */
 class QueueListAdapter(context: Context,
-    private val mDragStartListener: OnStartDragListener) : RecyclerView.Adapter<QueueListAdapter.QueueItemViewHolder>(), QueueItemTouchHelperCallback.ItemTouchHelperAdapter {
-    private val mProvider: QueueDataProvider = QueueDataProvider.getInstance(context)
-    private val mAppContext: Context = context.applicationContext
-    private val mItemViewOnClickListener: View.OnClickListener
+    private val dragStartListener: OnStartDragListener) : RecyclerView.Adapter<QueueListAdapter.QueueItemViewHolder>(), QueueItemTouchHelperCallback.ItemTouchHelperAdapter {
+    private val queueDataProvider: QueueDataProvider = QueueDataProvider.getInstance(context)
+    private val appContext: Context = context.applicationContext
+    private val itemViewOnClickListener: View.OnClickListener
     private var mEventListener: EventListener? = null
-    private var mImageLoader: ImageLoader? = null
+    private var imageLoader: ImageLoader? = null
 
     init {
-        mProvider.setOnQueueDataChangedListener (object : QueueDataProvider.OnQueueDataChangedListener {
+        queueDataProvider.setOnQueueDataChangedListener(object : QueueDataProvider.OnQueueDataChangedListener {
             override fun onQueueDataChanged() {
                 notifyDataSetChanged()
             }
         })
-        mItemViewOnClickListener = View.OnClickListener { view ->
+        itemViewOnClickListener = View.OnClickListener { view ->
             if (view.getTag(R.string.queue_tag_item) != null) {
                 val item = view.getTag(R.string.queue_tag_item) as MediaQueueItem
                 Log.d(TAG, item.itemId.toString())
@@ -68,24 +67,22 @@ class QueueListAdapter(context: Context,
     }
 
     override fun getItemId(position: Int): Long {
-        return mProvider.getItem(position).itemId.toLong()
+        return queueDataProvider.getItem(position).itemId.toLong()
     }
 
     private fun onItemViewClick(view: View) {
-        if (mEventListener != null) {
-            mEventListener!!.onItemViewClicked(view)
-        }
+        mEventListener?.onItemViewClicked(view)
     }
 
     override fun onItemDismiss(position: Int) {
-        mProvider.removeFromQueue(position)
+        queueDataProvider.removeFromQueue(position)
     }
 
     override fun onItemMove(fromPosition: Int, toPosition: Int): Boolean {
         if (fromPosition == toPosition) {
             return false
         }
-        mProvider.moveItem(fromPosition, toPosition)
+        queueDataProvider.moveItem(fromPosition, toPosition)
         notifyItemMoved(fromPosition, toPosition)
         return true
     }
@@ -99,53 +96,56 @@ class QueueListAdapter(context: Context,
     @SuppressLint("ClickableViewAccessibility")
     override fun onBindViewHolder(holder: QueueItemViewHolder, position: Int) {
         Log.d(TAG, "[upcoming] onBindViewHolder() for position: $position")
-        val item = mProvider.getItem(position)
-        holder.mContainer.setTag(R.string.queue_tag_item, item)
-        holder.mPlayPause.setTag(R.string.queue_tag_item, item)
-        holder.mPlayUpcoming.setTag(R.string.queue_tag_item, item)
-        holder.mStopUpcoming.setTag(R.string.queue_tag_item, item)
+        val item = queueDataProvider.getItem(position)
+        holder.container.setTag(R.string.queue_tag_item, item)
+        holder.playPause.setTag(R.string.queue_tag_item, item)
+        holder.playUpcoming.setTag(R.string.queue_tag_item, item)
+        holder.stopUpcoming.setTag(R.string.queue_tag_item, item)
 
         // Set listeners
-        holder.mContainer.setOnClickListener(mItemViewOnClickListener)
-        holder.mPlayPause.setOnClickListener(mItemViewOnClickListener)
-        holder.mPlayUpcoming.setOnClickListener(mItemViewOnClickListener)
-        holder.mStopUpcoming.setOnClickListener(mItemViewOnClickListener)
+        holder.container.setOnClickListener(itemViewOnClickListener)
+        holder.playPause.setOnClickListener(itemViewOnClickListener)
+        holder.playUpcoming.setOnClickListener(itemViewOnClickListener)
+        holder.stopUpcoming.setOnClickListener(itemViewOnClickListener)
 
         val info = item.media
         val metaData = info.metadata
-        holder.mTitleView.text = metaData.getString(MediaMetadata.KEY_TITLE)
-        holder.mDescriptionView.text = metaData.getString(MediaMetadata.KEY_SUBTITLE)
+        holder.titleView.text = metaData.getString(MediaMetadata.KEY_TITLE)
+        holder.descriptionView.text = metaData.getString(MediaMetadata.KEY_SUBTITLE)
         if (!metaData.images.isEmpty()) {
 
             val url = metaData.images[0].url.toString()
-            mImageLoader = CustomVolleyRequest.getInstance(mAppContext)
+            imageLoader = CustomVolleyRequest.getInstance(appContext)
                 .imageLoader
-            mImageLoader!!.get(url, ImageLoader.getImageListener(holder.mImageView, 0, 0))
-            holder.mImageView.setImageUrl(url, mImageLoader)
+            imageLoader!!.get(url, ImageLoader.getImageListener(holder.imageView, 0, 0))
+            holder.imageView.setImageUrl(url, imageLoader)
 
         }
 
-        holder.mDragHandle.setOnTouchListener { view, event ->
-            if (MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
-                mDragStartListener.onStartDrag(holder)
+        holder.dragHandle.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                dragStartListener.onStartDrag(holder)
             }
             false
         }
 
-        if (item === mProvider.currentItem) {
-            holder.updateControlsStatus(QueueItemViewHolder.CURRENT)
-            updatePlayPauseButtonImageResource(holder.mPlayPause)
-        } else if (item === mProvider.upcomingItem) {
-            holder.updateControlsStatus(QueueItemViewHolder.UPCOMING)
-        } else {
-            holder.updateControlsStatus(QueueItemViewHolder.NONE)
-            holder.mPlayPause.visibility = View.GONE
+        when {
+            item === queueDataProvider.currentItem -> {
+                holder.updateControlsStatus(QueueItemViewHolder.CURRENT)
+                updatePlayPauseButtonImageResource(holder.playPause)
+            }
+            item === queueDataProvider.upcomingItem -> holder.updateControlsStatus(
+                QueueItemViewHolder.UPCOMING)
+            else -> {
+                holder.updateControlsStatus(QueueItemViewHolder.NONE)
+                holder.playPause.visibility = View.GONE
+            }
         }
 
     }
 
     private fun updatePlayPauseButtonImageResource(button: ImageButton) {
-        val castSession = CastContext.getSharedInstance(mAppContext)
+        val castSession = CastContext.getSharedInstance(appContext)
             .sessionManager.currentCastSession
         val remoteMediaClient = castSession?.remoteMediaClient
         if (remoteMediaClient == null) {
@@ -161,23 +161,23 @@ class QueueListAdapter(context: Context,
     }
 
     override fun getItemCount(): Int {
-        return QueueDataProvider.getInstance(mAppContext).count
+        return QueueDataProvider.getInstance(appContext).count
     }
 
-    /* package */ class QueueItemViewHolder(itemView: View) : RecyclerView.ViewHolder(
+    class QueueItemViewHolder(itemView: View) : RecyclerView.ViewHolder(
         itemView), ItemTouchHelperViewHolder {
 
-        private val mContext: Context = itemView.context
-        val mPlayPause: ImageButton
-        val mControls: View
-        val mUpcomingControls: View
-        val mPlayUpcoming: ImageButton
-        val mStopUpcoming: ImageButton
-        var mImageView: NetworkImageView
-        var mContainer: ViewGroup
-        var mDragHandle: ImageView
-        var mTitleView: TextView
-        var mDescriptionView: TextView
+        private val context: Context = itemView.context
+        val playPause: ImageButton
+        val controls: View
+        val upcomingControls: View
+        val playUpcoming: ImageButton
+        val stopUpcoming: ImageButton
+        var imageView: NetworkImageView
+        var container: ViewGroup
+        var dragHandle: ImageView
+        var titleView: TextView
+        var descriptionView: TextView
 
         override fun onItemSelected() {
             // no-op
@@ -192,52 +192,52 @@ class QueueListAdapter(context: Context,
         private annotation class ControlStatus
 
         init {
-            mContainer = itemView.findViewById(R.id.container)
-            mDragHandle = itemView.findViewById(R.id.drag_handle)
-            mTitleView = itemView.findViewById(R.id.textView1)
-            mDescriptionView = itemView.findViewById(R.id.textView2)
-            mImageView = itemView.findViewById(R.id.imageView1)
-            mPlayPause = itemView.findViewById(R.id.play_pause)
-            mControls = itemView.findViewById(R.id.controls)
-            mUpcomingControls = itemView.findViewById(R.id.controls_upcoming)
-            mPlayUpcoming = itemView.findViewById(R.id.play_upcoming)
-            mStopUpcoming = itemView.findViewById(R.id.stop_upcoming)
+            container = itemView.findViewById(R.id.container)
+            dragHandle = itemView.findViewById(R.id.drag_handle)
+            titleView = itemView.findViewById(R.id.textView1)
+            descriptionView = itemView.findViewById(R.id.textView2)
+            imageView = itemView.findViewById(R.id.imageView1)
+            playPause = itemView.findViewById(R.id.play_pause)
+            controls = itemView.findViewById(R.id.controls)
+            upcomingControls = itemView.findViewById(R.id.controls_upcoming)
+            playUpcoming = itemView.findViewById(R.id.play_upcoming)
+            stopUpcoming = itemView.findViewById(R.id.stop_upcoming)
         }
 
         fun updateControlsStatus(@ControlStatus status: Int) {
             var bgResId = R.drawable.bg_item_normal_state
-            mTitleView.setTextAppearance(mContext, R.style.Base_TextAppearance_AppCompat_Subhead)
-            mDescriptionView.setTextAppearance(mContext,
+            titleView.setTextAppearance(context, R.style.Base_TextAppearance_AppCompat_Subhead)
+            descriptionView.setTextAppearance(context,
                 R.style.Base_TextAppearance_AppCompat_Caption)
             when (status) {
                 CURRENT -> {
                     bgResId = R.drawable.bg_item_normal_state
-                    mControls.visibility = View.VISIBLE
-                    mPlayPause.visibility = View.VISIBLE
-                    mUpcomingControls.visibility = View.GONE
-                    mDragHandle.setImageResource(DRAG_HANDLER_DARK_RESOURCE)
+                    controls.visibility = View.VISIBLE
+                    playPause.visibility = View.VISIBLE
+                    upcomingControls.visibility = View.GONE
+                    dragHandle.setImageResource(DRAG_HANDLER_DARK_RESOURCE)
                 }
                 UPCOMING -> {
-                    mControls.visibility = View.VISIBLE
-                    mPlayPause.visibility = View.GONE
-                    mUpcomingControls.visibility = View.VISIBLE
-                    mDragHandle.setImageResource(DRAG_HANDLER_LIGHT_RESOURCE)
+                    controls.visibility = View.VISIBLE
+                    playPause.visibility = View.GONE
+                    upcomingControls.visibility = View.VISIBLE
+                    dragHandle.setImageResource(DRAG_HANDLER_LIGHT_RESOURCE)
                     bgResId = R.drawable.bg_item_upcoming_state
-                    mTitleView.setTextAppearance(mContext,
+                    titleView.setTextAppearance(context,
                         R.style.TextAppearance_AppCompat_Small_Inverse)
-                    mTitleView.setTextAppearance(mTitleView.context,
+                    titleView.setTextAppearance(titleView.context,
                         R.style.Base_TextAppearance_AppCompat_Subhead_Inverse)
-                    mDescriptionView.setTextAppearance(mContext,
+                    descriptionView.setTextAppearance(context,
                         R.style.Base_TextAppearance_AppCompat_Caption)
                 }
                 else -> {
-                    mControls.visibility = View.GONE
-                    mPlayPause.visibility = View.GONE
-                    mUpcomingControls.visibility = View.GONE
-                    mDragHandle.setImageResource(DRAG_HANDLER_DARK_RESOURCE)
+                    controls.visibility = View.GONE
+                    playPause.visibility = View.GONE
+                    upcomingControls.visibility = View.GONE
+                    dragHandle.setImageResource(DRAG_HANDLER_DARK_RESOURCE)
                 }
             }
-            mContainer.setBackgroundResource(bgResId)
+            container.setBackgroundResource(bgResId)
         }
 
         companion object {
